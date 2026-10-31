@@ -46,7 +46,7 @@ The executable path above matches the local PostgreSQL 18 installation. Enter th
 The current repository expects `books.authors` and `books.subjects` to use
 `TEXT[]`. An older database using `JSONB` for these columns needs a separate
 conversion before running the workflow. For first-time environment and database
-setup, see the [README](../README.md#first-time-setup).
+setup, see the [setup guide](setup.md#first-time-setup).
 
 The connection code reads `DB_NAME`. A separate `.env` entry such as `DB_test_NAME` does not select the test database automatically. The commands below override `DB_NAME` for each process without editing `.env`.
 
