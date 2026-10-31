@@ -13,6 +13,17 @@ the reader's preferences.
 4. Ranks the books against a free-text reading preference.
 5. Stores scans, matched books, and recommendation results in PostgreSQL.
 
+## Technology stack
+
+- **Language:** Python 3.11
+- **API:** FastAPI with Uvicorn
+- **AI book detection:** OpenRouter through the OpenAI SDK
+- **Book metadata:** Open Library API through Requests
+- **Recommendations:** Sentence Transformers and NumPy
+- **Database:** PostgreSQL with Psycopg
+- **Validation and configuration:** Pydantic and `python-dotenv`
+- **Testing:** Pytest
+
 ## Setup
 
 Follow the [setup and usage guide](docs/setup.md) to configure the environment,
