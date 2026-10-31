@@ -1,0 +1,11 @@
+python-dotenv
+openai
+pydantic
+sentence-transformers
+requests
+psycopg[binary]
+fastapi
+uvicorn
+numpy
+numpy
+pytest
