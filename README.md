@@ -1,78 +1,62 @@
-# AI Book Shelf Scanner 
+# AI Bookshelf Scanner
 
-Identify books in a bookshelf photo and rank them based on the reader's preferences.
+AI Bookshelf Scanner identifies readable books in a bookshelf photograph,
+retrieves metadata for the detected titles, and ranks the results according to
+the reader's preferences.
 
-See the [setup and usage guide](docs/setup.md) for environment configuration,
-database setup, CLI usage, API startup, and repository tests.
+## What it does
 
-## Development history
+1. Sends a bookshelf image to OpenRouter for book-title and author detection.
+2. Matches detected books with metadata from Open Library.
+3. Creates semantic embeddings with
+   `sentence-transformers/all-MiniLM-L6-v2`.
+4. Ranks the books against a free-text reading preference.
+5. Stores scans, matched books, and recommendation results in PostgreSQL.
+
+## Setup
+
+Follow the [setup and usage guide](docs/setup.md) to configure the environment,
+install dependencies, set up PostgreSQL, run the CLI, start the API, and run
+the repository tests.
+
+## Run the CLI
+
+From the project root, run:
+
+```bash
+python -m src.cli \
+  --image "data/book_1.jpg" \
+  --preference "I enjoy science fiction and fantasy" \
+  --top-k 3
+```
+
+The CLI detects books in the image, retrieves their metadata, saves the scan
+and recommendations to PostgreSQL, and prints the ranked results.
+
+## Development
 
 Development followed an iterative process:
 
-Research → choose an approach → implement a component → test manually → integrate with the next stage.
+**Research → choose an approach → implement a component → test manually → integrate with the next stage.**
 
-See [Development stages](docs/development_stages.md) for the project’s progression and implementation details.
+See the [development stages](docs/development_stages.md) for the project’s
+progression and implementation details.
 
 ## Project structure
 
 ```text
-
-├── src/                                  # Application code
-│   │
-│   ├── cli.py                            # Parses terminal arguments and runs the pipeline
-│   ├── config.py                         # Loads provider settings and creates the OpenRouter client
-│   │
-│   ├── integrations/                     # External provider clients and detection models
-│   │   ├── open_library_client.py        # Searches, matches, and retrieves Open Library metadata
-│   │   ├── openrouter_client.py          # Identifies readable books in bookshelf images
-│   │   └── detection_schemas.py          # Defines Pydantic models for detection output
-│   │
-│   ├── services/                         # Coordinates application workflows
-│   │   ├── metadata_service.py           # Combines detection and metadata lookup with status counts
-│   │   ├── recommendation_service.py     # Combines profile preparation, embeddings, and ranking
-│   │   └── bookshelf_pipeline.py         # Coordinates scanning, database storage, and recommendations
-│   │
-│   ├── ml/                               # Content-based recommendation components
-│   │   ├── preprocessing.py              # Validates inputs and prepares book text profiles
-│   │   ├── embeddings.py                 # Generates normalized semantic embeddings
-│   │   └── ranking.py                    # Calculates similarity and ranks books
-│   │
-│   ├── database/                         # PostgreSQL connections, schema, and data access
-│   │   ├── connection.py                 # Opens connections using environment settings
-│   │   ├── migrations/
-│   │   │   └── 001_book_shelf_schema.sql  # Creates tables and their foreign keys
-│   │   └── repositories/
-│   │       ├── scan_repository.py        # Saves and retrieves scan records
-│   │       ├── book_repository.py        # Saves and retrieves book metadata
-│   │       └── recommendation_repository.py # Saves and retrieves recommendation results
-│   │
-│   └── api/                              # FastAPI application and HTTP endpoints
-│       ├── main.py                       # Creates the app and registers route modules
-│       ├── schemas.py                    # Defines and validates API request models
-│       └── routes/
-│           ├── scans.py                  # Creates and retrieves scan records
-│           ├── books.py                  # Retrieves books and books belonging to a scan
-│           └── recommendations.py        # Generates, saves, and retrieves recommendations
-│   
-├── tests/
-│   └── test_repositories.py              # Integration tests using PostgreSQL
-├── data/
-│   ├── book_*.jpg                        # Sample bookshelf photos, numbered 1 through 11
-│   └── processed/
-│       └── books_metadata.json           # JSON output from the standalone metadata example
-│   
-├── docs/
-│   ├── setup.md                          # Environment, database, CLI, API, and test instructions
-│   ├── development_stages.md             # Implementation stages and design decisions
-│   └── manual_api_integration_testing.md # Manual checks for the CLI, database, and API
-│   
-├── .env                                  # Local credentials and configuration
-├── .env.example                          # Configuration template without real credentials
-├── .gitignore                            # Git ignore rules
-├── requirements.txt                      # Python dependencies
-└── README.md                             # Project overview and usage
+├── src/
+│   ├── cli.py                    # CLI entry point
+│   ├── config.py                 # Environment and model configuration
+│   ├── integrations/             # OpenRouter and Open Library clients
+│   ├── services/                 # Detection, metadata, and recommendation workflows
+│   ├── ml/                       # Preprocessing, embeddings, and ranking
+│   ├── database/                 # PostgreSQL schema and repositories
+│   └── api/                      # FastAPI application and routes
+├── data/                         # Sample bookshelf images and generated data
+├── docs/                         # Setup, development, and integration guides
+├── tests/                        # Repository and integration tests
+├── .env.example                  # Environment configuration template
+├── requirements.txt              # Python dependencies
+└── README.md                     # Project documentation
 ```
-
-The CLI pipeline saves scans, matched books, and recommendations to PostgreSQL.
-The JSON file in `data/processed/` is output from the standalone metadata example;
-it is not required by the CLI pipeline.
