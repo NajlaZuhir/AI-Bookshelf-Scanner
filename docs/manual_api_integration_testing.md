@@ -1,7 +1,11 @@
 # Manual API integration testing
 
-Verify the CLI, FastAPI, and PostgreSQL together: scan an image, retrieve its
-books, generate another recommendation, and check the saved records.
+The guide tests this flow:
+
+1. **CLI:** Reads a local image, detects books, and saves their metadata and initial recommendations to PostgreSQL.
+2. **API:** Retrieves that saved data and generates new recommendations using different preferences.
+
+It tests the API using an **already processed scan**. Image uploading through the API is not part of the current implementation.
 
 ## 1. Prerequisites
 
