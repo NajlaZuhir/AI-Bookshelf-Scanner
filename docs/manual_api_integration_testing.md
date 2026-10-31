@@ -23,11 +23,11 @@ Successful inserts remain in the database for inspection. Repeating the CLI crea
 - PostgreSQL is running, and `bookshelf_test` already has the `scan`, `books`, and `recommendation_result` tables and their foreign keys.
 - The project dependencies are installed in the active Python environment.
 - `.env` contains the required PostgreSQL and OpenRouter configuration.
-- The test image exists, for example `data/images/book_6.jpg`.
+- The test image exists, for example `data/book_6.jpg`.
 - Use Git Bash. Run all commands from the project root:
 
   ```bash
-  cd ~/Desktop/Git25_26/Book_Shelf_Scanner_2.0
+  cd ~/Desktop/Git25_26/Book_Shelf_Scanner_2.0/ai-bookshelf-scanner
   ```
 
 If the test database is newly created and empty, apply the schema once before continuing:
@@ -43,20 +43,10 @@ If the test database is newly created and empty, apply the schema once before co
 
 The executable path above matches the local PostgreSQL 18 installation. Enter the database password when prompted. Do not rerun this initial migration against a database that already has these tables.
 
-For an existing database whose `books.authors` and `books.subjects` columns use
-`JSONB`, apply the migration below to convert them to `TEXT[]` while preserving
-their values. It also accepts columns already using `TEXT[]`. Use the database
-you intend to migrate (`bookshelf_test` below, or `book_shelf` for the application
-database):
-
-```bash
-"/c/Program Files/PostgreSQL/18/bin/psql.exe" \
-  -h localhost -p 5432 -U postgres \
-  -d bookshelf_test \
-  -v ON_ERROR_STOP=1 \
-  --single-transaction \
-  -f src/database/migrations/002_book_metadata_text_arrays.sql
-```
+The current repository expects `books.authors` and `books.subjects` to use
+`TEXT[]`. An older database using `JSONB` for these columns needs a separate
+conversion before running the workflow. For first-time environment and database
+setup, see the [README](../README.md#first-time-setup).
 
 The connection code reads `DB_NAME`. A separate `.env` entry such as `DB_test_NAME` does not select the test database automatically. The commands below override `DB_NAME` for each process without editing `.env`.
 
@@ -66,7 +56,7 @@ In terminal A:
 
 ```bash
 DB_NAME=bookshelf_test python -m src.cli \
-  --image "data/images/book_6.jpg" \
+  --image "data/book_6.jpg" \
   --preference "I enjoy science fiction and fantasy novels" \
   --top-k 3
 ```
@@ -110,7 +100,7 @@ GET /scans
 
 Expected: `200 OK`, with a JSON list of scans ordered by creation time, newest first.
 
-Find the newly created scan by its image path and creation time. Copy its `scan_id`. Windows paths may appear as `data\\images\\book_6.jpg` in JSON because backslashes are escaped.
+Find the newly created scan by its image path and creation time. Copy its `scan_id`. Windows paths may appear as `data\\book_6.jpg` in JSON because backslashes are escaped.
 
 The IDs below are examples only. Use the actual IDs from your run.
 
@@ -244,7 +234,7 @@ In Swagger, execute `POST /scans` with:
 
 ```json
 {
-  "image_path": "data/images/book_6.jpg"
+  "image_path": "data/book_6.jpg"
 }
 ```
 
