@@ -21,58 +21,32 @@ python -m pip install -r requirements.txt
 
 ### 3. Configure environment variables
 
-For a new checkout, copy the configuration template. If `.env` already exists,
-keep it and check its settings instead of replacing it.
+Copy `.env.example` to `.env` and fill in your OpenRouter API key and PostgreSQL
+credentials. Keep your existing `.env` if already configured.
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and fill in:
+### 4. Set up the database
 
-- `OPENROUTER_API_KEY`: your OpenRouter API key.
-- `DB_HOST` and `DB_PORT`: the PostgreSQL address, normally `localhost` and `5432`.
-- `DB_NAME`: the application database name, `book_shelf` in the examples below.
-- `DB_USER` and `DB_PASSWORD`: your PostgreSQL login credentials.
-
-You can optionally set `OPENROUTER_MODEL` to select a model that supports image
-input and structured JSON output. Otherwise, the code uses the default configured
-in `src/config.py`.
-
-### 4. Create the PostgreSQL database
-
-Set the path to `psql`. This example uses PostgreSQL 18; adjust the path to match
-your installation. If `psql` is already on your PATH, use `PSQL=psql` instead.
+Use your database details from `.env` and adjust the PostgreSQL executable path:
 
 ```bash
 PSQL="/c/Program Files/PostgreSQL/18/bin/psql.exe"
-```
 
-Create the database once, entering the PostgreSQL password when prompted:
-
-```bash
 "$PSQL" -h localhost -p 5432 -U postgres -d postgres \
   -v ON_ERROR_STOP=1 -c "CREATE DATABASE book_shelf;"
-```
 
-Use the same host, port, user, and database name as your `.env`. If the database
-already exists, skip its creation.
-
-### 5. Apply the initial database schema
-
-For a new, empty database, create the tables and foreign keys:
-
-```bash
 "$PSQL" -h localhost -p 5432 -U postgres -d book_shelf \
   -v ON_ERROR_STOP=1 --single-transaction \
   -f src/database/migrations/001_book_shelf_schema.sql
 ```
 
-The initial schema uses `TEXT[]` for book authors and subjects, and `JSONB` for
-recommendation results. Skip this step if these tables already exist; the initial
-schema is not a migration to rerun on every launch.
+Run once. Skip `CREATE DATABASE` if the database exists; skip the migration if
+its tables already exist.
 
-### 6. Run the CLI
+### 5. Run the application
 
 ```bash
 python -m src.cli \
@@ -81,12 +55,7 @@ python -m src.cli \
   --top-k 3
 ```
 
-Both `--image` and `--preference` are required. `--top-k` is optional and defaults
-to `3`. Use `python -m src.cli --help` to see the available arguments.
-
-The CLI calls OpenRouter and Open Library, saves matched books to PostgreSQL,
-and generates and saves recommendations. The embedding model may download its
-weights on the first run.
+The CLI saves matched books and recommendations to PostgreSQL.
 
 ## Running the project again
 
@@ -114,21 +83,5 @@ check the CLI, database, and API together.
 
 ## Optional: run repository tests
 
-Use a separate `bookshelf_test` database. The repository tests insert records
-that remain available for inspection. Create this database and apply its schema
-once, using the same `PSQL` variable from setup:
-
-```bash
-"$PSQL" -h localhost -p 5432 -U postgres -d postgres \
-  -v ON_ERROR_STOP=1 -c "CREATE DATABASE bookshelf_test;"
-"$PSQL" -h localhost -p 5432 -U postgres -d bookshelf_test \
-  -v ON_ERROR_STOP=1 --single-transaction \
-  -f src/database/migrations/001_book_shelf_schema.sql
-```
-
-Skip creation and schema setup if the test database and tables already exist.
-Run the tests with a database override that leaves `.env` unchanged:
-
-```bash
-DB_NAME=bookshelf_test python -m pytest tests/test_repositories.py -v
-```
+See the [integration testing guide](manual_api_integration_testing.md#repository-tests)
+for test database setup and the pytest command.

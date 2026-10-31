@@ -20,7 +20,7 @@ Successful inserts remain in the database for inspection. Repeating the CLI crea
 
 ## 1. Prerequisites
 
-- PostgreSQL is running, and `bookshelf_test` already has the `scan`, `books`, and `recommendation_result` tables and their foreign keys.
+- PostgreSQL is running; prepare the `bookshelf_test` database using the instructions below.
 - The project dependencies are installed in the active Python environment.
 - `.env` contains the required PostgreSQL and OpenRouter configuration.
 - The test image exists, for example `data/book_6.jpg`.
@@ -30,18 +30,25 @@ Successful inserts remain in the database for inspection. Repeating the CLI crea
   cd ~/Desktop/Git25_26/Book_Shelf_Scanner_2.0/ai-bookshelf-scanner
   ```
 
-If the test database is newly created and empty, apply the schema once before continuing:
+### Test database setup
+
+Use a separate `bookshelf_test` database. Adjust the PostgreSQL executable path
+and connection details to your installation. Create the database and apply its
+schema once:
 
 ```bash
-"/c/Program Files/PostgreSQL/18/bin/psql.exe" \
-  -h localhost -p 5432 -U postgres \
-  -d bookshelf_test \
-  -v ON_ERROR_STOP=1 \
-  --single-transaction \
+PSQL="/c/Program Files/PostgreSQL/18/bin/psql.exe"
+
+"$PSQL" -h localhost -p 5432 -U postgres -d postgres \
+  -v ON_ERROR_STOP=1 -c "CREATE DATABASE bookshelf_test;"
+
+"$PSQL" -h localhost -p 5432 -U postgres -d bookshelf_test \
+  -v ON_ERROR_STOP=1 --single-transaction \
   -f src/database/migrations/001_book_shelf_schema.sql
 ```
 
-The executable path above matches the local PostgreSQL 18 installation. Enter the database password when prompted. Do not rerun this initial migration against a database that already has these tables.
+Enter the PostgreSQL password when prompted. Skip database creation if it already
+exists, and skip the initial schema if its tables already exist.
 
 The current repository expects `books.authors` and `books.subjects` to use
 `TEXT[]`. An older database using `JSONB` for these columns needs a separate
@@ -49,6 +56,17 @@ conversion before running the workflow. For first-time environment and database
 setup, see the [setup guide](setup.md#first-time-setup).
 
 The connection code reads `DB_NAME`. A separate `.env` entry such as `DB_test_NAME` does not select the test database automatically. The commands below override `DB_NAME` for each process without editing `.env`.
+
+### Repository tests
+
+After [test database setup](#test-database-setup), run:
+
+```bash
+DB_NAME=bookshelf_test python -m pytest tests/test_repositories.py -v
+```
+
+The tests insert records that remain available for inspection. They exercise the
+repositories using PostgreSQL; the manual CLI and API checks follow below.
 
 ## 2. Run the CLI pipeline
 
