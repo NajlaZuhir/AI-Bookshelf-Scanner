@@ -141,15 +141,3 @@ Its book list and recommendation history should return `200` with `[]`.
 Invalid recommendation requests must not add saved results. Omitting `top_k`
 defaults to 3; `top_k: null` requests all rankable books.
 
-## Troubleshooting
-
-| Symptom | Check |
-| --- | --- |
-| CLI records missing from the API | Ensure both processes use `bookshelf_test`; restart an old API server and execute GET again |
-| Port 8000 unavailable | Stop the existing server before starting another |
-| Empty book list | Use a CLI-created scan with matched books; POST /scans creates a path-only record |
-| Recommendation request takes time | The embedding model may be loading |
-| Database viewer shows old data | Select `bookshelf_test` and refresh or rerun the query |
-
-Record the date, image, scan ID, book IDs, result IDs, and checks performed.
-These manual checks do not replace automated HTTP tests or provider-failure tests.
