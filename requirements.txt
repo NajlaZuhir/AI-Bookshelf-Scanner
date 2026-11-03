@@ -9,3 +9,5 @@ uvicorn
 numpy
 numpy
 pytest
+python-multipart
+pillow

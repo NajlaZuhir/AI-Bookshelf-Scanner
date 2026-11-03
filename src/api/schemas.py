@@ -1,15 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class ScanCreate(BaseModel):
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        extra="forbid",
-    )
-
-    image_path: str = Field(min_length=1)
-
-
 class RecommendationCreate(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True,

@@ -1,6 +1,7 @@
 
 
 from pathlib import Path
+from contextlib import nullcontext
 
 if __package__ in (None, ""):
     import sys
@@ -26,7 +27,7 @@ def _storage_image_path(image_path: str | Path) -> str:
 
 class ScanRepository:
 
-    def create(self, image_path: str,) -> int:
+    def create(self, image_path: str, *, connection=None) -> int:
         """Store a new bookshelf scan and return its ID."""
 
         query ="""
@@ -34,7 +35,11 @@ class ScanRepository:
             VALUES (%s)
             RETURNING scan_id;
         """
-        with get_connection() as conn:
+        with (
+        nullcontext(connection)
+            if connection is not None
+            else get_connection()
+        ) as conn:    
             with conn.cursor() as cur:
                 cur.execute(query,(_storage_image_path(image_path),))
                 return cur.fetchone()[0]

@@ -1,10 +1,21 @@
-from fastapi import APIRouter, HTTPException
+from io import BytesIO
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from PIL import Image, ImageOps, UnidentifiedImageError
+
 from src.database.repositories.scan_repository import ScanRepository
-from src.api.schemas import ScanCreate
+from src.services.scan_service import process_scan
 
 router = APIRouter()
 scan_repository = ScanRepository()
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_IMAGE_PIXELS = 20_000_000
 
 # get (Retrieval) endpoints==============================================
 @router.get("/scans")
@@ -26,6 +37,61 @@ def get_one_scan(scan_id: int):
 
 # post (Creation) endpoints==============================================
 @router.post("/scans", status_code=201)
-def create_scan(scan: ScanCreate):
-    scan_id = scan_repository.create(scan.image_path)
-    return {"scan_id": scan_id}
+def create_scan(file: UploadFile = File(...)):
+    contents = file.file.read(MAX_UPLOAD_BYTES + 1)
+
+    if not contents:
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is empty.",
+        )
+
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="The image must be 10 MB or smaller.",
+        )
+
+    # Read the actual image contents, rather than trusting its filename.
+    try:
+        with Image.open(BytesIO(contents)) as image:
+            if image.format not in {"JPEG", "PNG"}:
+                raise HTTPException(
+                    status_code=415,
+                    detail="Upload a JPEG or PNG image.",
+                )
+
+            if image.width * image.height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    status_code=413,
+                    detail="The image must be 20 megapixels or smaller.",
+                )
+
+            # Correct phone-photo orientation and normalize to JPEG.
+            normalized_image = ImageOps.exif_transpose(image).convert("RGB")
+
+    except (
+        UnidentifiedImageError,
+        OSError,
+        Image.DecompressionBombError,
+    ) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="The file could not be read as an image.",
+        ) from exc
+
+    image_path = UPLOAD_DIR / f"{uuid4().hex}.jpg"
+
+    try:
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        normalized_image.save(image_path, format="JPEG", quality=90)
+
+        return process_scan(image_path)
+
+    except Exception:
+        # Remove the uploaded image if processing or saving fails.
+        image_path.unlink(missing_ok=True)
+        raise
+
+    finally:
+        normalized_image.close()

@@ -1,5 +1,6 @@
 
 from pathlib import Path
+from contextlib import nullcontext
 
 if __package__ in (None, ""):
     import sys
@@ -12,7 +13,13 @@ else:
 
 class BookRepository:
 
-    def create(self, scan_id: int, book: dict) -> int:
+    def create(
+        self,
+        scan_id: int,
+        book: dict,
+        *,
+        connection=None,
+    ) -> int:
         """Save a book containing a nested Open Library metadata dictionary."""
         metadata = book.get("metadata")
         if not isinstance(metadata, dict) or not metadata:
@@ -38,7 +45,12 @@ class BookRepository:
             metadata.get("description"),
             metadata.get("subjects") or [],
         )
-        with get_connection() as conn:
+        # to let scan and its books use the same transaction. Otherwise, the book insert can fail because the new scan hasn’t committed yet.
+        with (
+            nullcontext(connection)
+            if connection is not None
+            else get_connection()
+        ) as conn:
             with conn.cursor() as cur:
                 cur.execute(query, params)
                 return cur.fetchone()[0]
