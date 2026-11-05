@@ -7,12 +7,15 @@ This stage focused on defining requirements and exploring the initial architectu
 
 **Proposed workflow:** Photo + reader preferences/history → book identification → book information → ranked recommendations.
 
-## scope
+## Scope
 
 - Identify books in an image.
 - Retrieve relevant book information.
 - Rank detected books based on the reader's interests and history.
 - Provide a short explanation for each recommendation.
+
+The current MVP uses free-text preferences. Persistent reading history and
+recommendation explanations remain planned features.
 
 ## Technologies considered
 
@@ -110,8 +113,47 @@ Uses Psycopg and repository classes to separate database queries from applicatio
 
 Saved book IDs are retained in recommendations. The backend can reuse a scan's stored books for new preferences and retrieve its recommendation history.
 
+## Image-upload API
+
+Added `POST /scans` to accept a multipart image in the `file` field. It validates
+JPEG/PNG contents, enforces 10 MB and 20-megapixel limits, corrects orientation,
+and stores a normalized JPEG in `data/uploads/` under a unique filename.
+
+`process_scan(image_path)` reuses the detection and metadata services. The scan
+and matched books share one database transaction; a saving failure rolls back
+their inserts. Failed upload processing also removes the uploaded image.
+
+The response includes the scan ID, detection counts, lookup statuses, and saved
+book IDs. Unmatched titles and metadata lookup failures remain in the response;
+only matched books are persisted. Recommendations are generated separately via
+`POST /scans/{scan_id}/recommendations`, allowing preference changes without
+rescanning.
+
 ## Validation
 
 Used Postman to manually test GET requests to `/books`, `/scans`, and `/recommendations`, plus POST requests for scan creation and recommendations. Checked request handling, API responses, and database retrieval through the flow: Postman → FastAPI → repositories → PostgreSQL.
 
-These were manual integration checks, separate from automated repository tests covering record creation and retrieval, filtering by scan, recommendation history, and foreign-key enforcement. A [manual integration guide](manual_api_integration_testing.md) documents CLI, API, and database checks.
+These were manual integration checks, separate from automated repository tests covering record creation and retrieval, filtering by scan, recommendation history, and foreign-key enforcement. A [manual integration guide](manual_api_integration_testing.md) documents the current upload, retrieval, recommendation, and database checks, with the CLI as an alternative.
+
+# Stage 6: Frontend Development
+
+Built a responsive React + Vite interface with a cream-and-green design.
+
+## Workflow
+
+Select or drop a photo → preview → scan → review detected books → enter
+preferences → display up to three recommendations.
+
+- Displays detected titles, authors, available descriptions, and match statuses.
+- Includes loading indicators, request errors, empty results, and starting a new scan.
+- Shows ranked recommendations with available metadata and Open Library links.
+- Clears previous results when the photo changes; recommendations use matched books.
+
+During development, Vite forwards `/api` requests to FastAPI on port 8000 and
+removes the `/api` prefix. The backend and frontend run in separate terminals.
+
+## Remaining work
+
+Deployment, device-based sessions, persistent reader preferences and reading
+history, shared metadata caching, rate limiting, and production monitoring
+remain future work. AI/ML quality evaluation is also pending.

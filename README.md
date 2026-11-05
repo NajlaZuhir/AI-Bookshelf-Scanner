@@ -6,17 +6,19 @@ the reader's preferences.
 
 ## What it does
 
-1. Sends a bookshelf image to OpenRouter for book-title and author detection.
-2. Matches detected books with metadata from Open Library.
-3. Creates semantic embeddings with
-   `sentence-transformers/all-MiniLM-L6-v2`.
-4. Ranks the books against a free-text reading preference.
+1. Accepts a bookshelf photo through a React web interface or the CLI.
+2. Detects readable book titles and authors using OpenRouter.
+3. Retrieves and matches book metadata from Open Library.
+4. Ranks matched books against free-text reading preferences using MiniLM embeddings.
 5. Stores scans, matched books, and recommendation results in PostgreSQL.
+6. Displays detected books, match statuses, and personalized recommendations.
 
 ## Technology stack
 
-- **Language:** Python 3.11
+- **Languages:** Python 3.11 and JavaScript
+- **Frontend:** React and Vite
 - **API:** FastAPI with Uvicorn
+- **Image uploading:** FastAPI UploadFile, `python-multipart`, and Pillow
 - **AI book detection:** OpenRouter through the OpenAI SDK
 - **Book metadata:** Open Library API through Requests
 - **Recommendations:** Sentence Transformers and NumPy
@@ -27,10 +29,11 @@ the reader's preferences.
 ## Setup
 
 Follow the [setup and usage guide](docs/setup.md) to configure the environment,
-install dependencies, set up PostgreSQL, run the CLI, start the API, and run
-the repository tests.
+initialize PostgreSQL, and run the backend and frontend in separate terminals.
+Upload a photo, review detected books, and enter your reading preferences to get
+recommendations. See the [frontend guide](frontend/README.md) for UI and proxy details.
 
-## Run the CLI
+## Optional: run the CLI
 
 From the project root, run:
 
@@ -64,9 +67,10 @@ progression and implementation details.
 │   ├── ml/                       # Preprocessing, embeddings, and ranking
 │   ├── database/                 # PostgreSQL schema and repositories
 │   └── api/                      # FastAPI application and routes
-├── data/                         # Sample bookshelf images and generated data
+├── frontend/                     # React interface and Vite configuration
+├── data/                         # Sample images, local uploads, and generated data
 ├── docs/                         # Setup, development, and integration guides
-├── tests/                        # Repository and integration tests
+├── tests/                        # PostgreSQL repository tests
 ├── .env.example                  # Environment configuration template
 ├── requirements.txt              # Python dependencies
 └── README.md                     # Project documentation

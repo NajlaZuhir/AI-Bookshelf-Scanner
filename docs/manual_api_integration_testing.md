@@ -1,11 +1,10 @@
 # Manual API integration testing
 
-The guide tests this flow:
+The guide checks: **upload → detect books → retrieve metadata → save → retrieve
+records → recommend**. Use Swagger UI or curl to exercise the API directly.
 
-1. **CLI:** Reads a local image, detects books, and saves their metadata and initial recommendations to PostgreSQL.
-2. **API:** Retrieves that saved data and generates new recommendations using different preferences.
-
-It tests the API using an **already processed scan**. Image uploading through the API is not part of the current implementation.
+Uploading a photo saves a scan and matched books. Recommendations are generated
+in a separate request. Scanning calls the real vision and metadata services.
 
 ## 1. Prerequisites
 
@@ -38,37 +37,44 @@ Test records remain in this database for inspection.
 DB_NAME=bookshelf_test python -m pytest tests/test_repositories.py -v
 ```
 
-These test database repositories. Continue below to check the full workflow.
+These are optional automated database repository checks. The manual API
+workflow starts below.
 
-## 2. Scan an image
+## 2. Start the API
 
-```bash
-DB_NAME=bookshelf_test python -m src.cli \
-  --image "data/book_6.jpg" \
-  --preference "I enjoy science fiction and fantasy novels" \
-  --top-k 3
-```
-
-Expect no traceback and up to three recommendations with book IDs and similarity
-scores. The CLI saves the scan, matched books, and initial recommendation. Use an
-image with matched books to check nonempty results; scanning calls external APIs.
-
-## 3. Start the API
-
-In another terminal, activate the same environment and run from the project root:
+With the Python environment activated, run from the project root:
 
 ```bash
-DB_NAME=bookshelf_test python -m uvicorn src.api.main:app --reload
+DB_NAME=bookshelf_test python -m uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Keep it running and open [Swagger UI](http://127.0.0.1:8000/docs).
 For each request, select **Try it out**, enter the values, and select **Execute**.
-Both the CLI and API must use the test database.
+
+## 3. Upload and scan an image
+
+In Swagger, expand `POST /scans`, choose a sample such as `data/book_6.jpg` in
+the `file` field, and execute. Alternatively, use a second Git Bash terminal
+from the project root:
+
+```bash
+curl -i -X POST http://127.0.0.1:8000/scans \
+  -F "file=@data/book_6.jpg"
+```
+
+Expect `201` with `scan_id`, `total_detected`, `total_matched`, `total_unmatched`,
+`total_api_errors`, and a `books` array. Copy the returned scan ID. Matched books
+should include `book_id` and metadata. Unmatched books and lookup failures
+appear in this response but are not saved as book records.
+
+The uploaded image is stored under a unique JPEG filename in `data/uploads/`.
+An image with no readable titles can return a successful scan with no books.
+Use a scan with matched books to check nonempty recommendations.
 
 ## 4. Retrieve the scan and books
 
-Call `GET /scans`, find the new scan by image path and creation time, and copy its
-`scan_id`. Use actual IDs from your run in all requests:
+Use the `scan_id` from the upload response. `GET /scans` should also include the
+new scan. Use actual IDs from your run in all requests:
 
 | Request | Expected |
 | --- | --- |
@@ -77,6 +83,8 @@ Call `GET /scans`, find the new scan by image path and creation time, and copy i
 | `GET /books/{book_id}` | `200`; matches a book from that scan |
 
 Record the book IDs for the next checks.
+Before generating recommendations, `GET /scans/{scan_id}/recommendations`
+should return `200` with `[]` for this new upload.
 
 ## 5. Generate and retrieve recommendations
 
@@ -98,7 +106,7 @@ Then check:
 | Request | Expected |
 | --- | --- |
 | `GET /recommendations/{result_id}` | `200`; saved preference, model, limit, and `ranked_outcome` matching the POST results |
-| `GET /scans/{scan_id}/recommendations` | `200`; includes CLI and API results, newest first |
+| `GET /scans/{scan_id}/recommendations` | `200`; includes the newly saved result, newest first |
 | `GET /books` and `GET /recommendations` | `200`; include the saved records |
 
 Repeat the POST with a different preference and `top_k: 2`. Expect a new result,
@@ -125,9 +133,8 @@ Confirm IDs, metadata, preferences, and ranked results match the API responses.
 
 ## Optional checks
 
-`POST /scans` with `{"image_path": "data/book_6.jpg"}` should return `201` and a
-new scan ID. It only registers a path: it does not upload or scan the image.
-Its book list and recommendation history should return `200` with `[]`.
+Uploads use multipart form data with the field name `file`. The limits are
+10 MB and 20 megapixels, and accepted formats are JPEG and PNG.
 
 | Request / input | Expected |
 | --- | --- |
@@ -135,9 +142,27 @@ Its book list and recommendation history should return `200` with `[]`.
 | POST recommendations for an absent scan with a valid body | `404` |
 | POST recommendations with `top_k: 0`, `-1`, `true`, or `1.5` | `422` |
 | POST recommendations with a blank preference | `422` |
-| POST a scan with a missing or blank image path | `422` |
+| POST a scan without the `file` field | `422` |
+| Upload an empty or unreadable image | `400` |
+| Upload a readable image in an unsupported format, such as GIF | `415` |
+| Upload an image exceeding the file-size or pixel limit | `413`; Pillow decompression-bomb rejection can return `400` |
 | `GET /scans/not-an-integer` | `422` |
 
 Invalid recommendation requests must not add saved results. Omitting `top_k`
 defaults to 3; `top_k: null` requests all rankable books.
+
+## Optional: use the CLI instead of uploading
+
+With the same test database selected, run from the project root:
+
+```bash
+DB_NAME=bookshelf_test python -m src.cli \
+  --image "data/book_6.jpg" \
+  --preference "I enjoy science fiction and fantasy novels" \
+  --top-k 3
+```
+
+The CLI saves both the scan and an initial recommendation. Find its scan ID via
+`GET /scans`, then follow the retrieval steps above. Both the CLI and API must
+use `bookshelf_test` to see the same records.
 
