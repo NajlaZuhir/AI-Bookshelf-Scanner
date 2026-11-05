@@ -20,6 +20,11 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+GOOGLE_VISION_FALLBACK_ENABLED = (
+    os.getenv("GOOGLE_VISION_FALLBACK_ENABLED", "false").strip().lower()
+    == "true"
+)
+
 
 @lru_cache(maxsize=1)
 def get_openrouter_client() -> OpenAI:

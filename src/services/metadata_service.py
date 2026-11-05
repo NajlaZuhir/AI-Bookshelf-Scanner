@@ -16,7 +16,7 @@ if __package__:
         find_all_books,
         run_find_book,
     )
-    from ..integrations.openrouter_client import identify_books_in_image
+    from .detection_service import detect_books
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -27,7 +27,7 @@ else:
         find_all_books,
         run_find_book,
     )
-    from src.integrations.openrouter_client import identify_books_in_image
+    from src.services.detection_service import detect_books
 
 
 logger = logging.getLogger(__name__)
@@ -90,13 +90,28 @@ def find_book_with_cache(
 
 def scan_books(image_path: Path | str) -> dict[str, Any]:
     """Return detected books enriched with metadata and lookup status counts."""
-    vlm_results = identify_books_in_image(image_path)
+    detection_results = detect_books(image_path)
     book_results = find_all_books(
-        vlm_results.get("books", []),
+        detection_results.get("books", []),
         find_book=find_book_with_cache,
     )
 
+    if detection_results["detection_source"] == "google_vision":
+        # Different OCR fragments can match the same work. Keep one match.
+        unique_results = []
+        seen_work_ids = set()
+        for book in book_results:
+            metadata = book.get("metadata") or {}
+            work_id = metadata.get("work_id")
+            if book["match_status"] == "matched" and work_id:
+                if work_id in seen_work_ids:
+                    continue
+                seen_work_ids.add(work_id)
+            unique_results.append(book)
+        book_results = unique_results
+
     return {
+        "detection_source": detection_results["detection_source"],
         "total_detected": len(book_results),
         "total_matched": sum(
             b["match_status"] == "matched"

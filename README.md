@@ -7,8 +7,8 @@ the reader's preferences.
 ## What it does
 
 1. Accepts a bookshelf photo through a React web interface or the CLI.
-2. Detects readable book titles and authors using OpenRouter.
-3. Retrieves and matches book metadata from Open Library.
+2. Detects readable book titles and authors using OpenRouter, with optional Google Vision OCR fallback on detection failure.
+3. Retrieves and matches book metadata from Open Library, reusing a shared 30-day PostgreSQL cache.
 4. Ranks matched books against free-text reading preferences using MiniLM embeddings.
 5. Stores scans, matched books, and recommendation results in PostgreSQL.
 6. Displays detected books, match statuses, and personalized recommendations.
@@ -20,6 +20,7 @@ the reader's preferences.
 - **API:** FastAPI with Uvicorn
 - **Image uploading:** FastAPI UploadFile, `python-multipart`, and Pillow
 - **AI book detection:** OpenRouter through the OpenAI SDK
+- **Optional OCR fallback:** Google Cloud Vision
 - **Book metadata:** Open Library API through Requests
 - **Recommendations:** Sentence Transformers and NumPy
 - **Database:** PostgreSQL with Psycopg

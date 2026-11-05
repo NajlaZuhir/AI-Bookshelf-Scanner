@@ -11,3 +11,4 @@ numpy
 pytest
 python-multipart
 pillow
+google-cloud-vision

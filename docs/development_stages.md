@@ -49,6 +49,12 @@ Manual checks covered *Atomic Habits*, *Deep Work*, nonexistent titles, invalid 
 
 Used Postman to explore Google Books and Open Library before implementing the Python integrations. Inspected request parameters, JSON fields, and error responses, including Google Books quota errors. Testing Open Library's search and work-details endpoints helped define the metadata mapping and normalization.
 
+Added a shared PostgreSQL metadata cache keyed by normalized title and author.
+Successful matches are reused for 30 days; missing or expired entries trigger
+an Open Library lookup and refresh. Unmatched titles and API failures are not
+cached. Cache access failures fall back to the normal lookup, and terminal
+messages report cache hits, misses, and saves.
+
 # Stage 3: AI / Computer Vision
 
 Built `identify_books_in_image(image_path)` to extract readable book titles and authors from bookshelf photos.
@@ -70,6 +76,22 @@ Bookshelf photo → vision model → structured book detections → Open Library
 Returns a `books` array containing `book_number`, `title`, and `author`. The prompt requests an empty array when no titles are readable.
 
 Uses a strict JSON schema and Pydantic validation to reject malformed responses. Recognition accuracy still requires evaluation against manually labeled images.
+
+## Optional Google Vision fallback
+
+`detect_books()` calls OpenRouter first. When enabled, primary API failures or
+invalid structured output trigger Google Vision Document Text Detection.
+Valid empty primary responses do not trigger fallback.
+
+OCR paragraphs are treated as candidate titles with unknown authors and passed
+through the existing cached metadata matcher. Duplicate matched work IDs are
+removed. Scan responses include `detection_source`; terminal output identifies
+the selected provider. If both providers fail, the scan reports an error.
+
+The fallback is disabled until Google Cloud authentication is configured and
+`GOOGLE_VISION_FALLBACK_ENABLED=true` is set. OCR grouping is a baseline heuristic,
+so its candidate counts are not confirmed book counts and its quality still
+requires evaluation. Setup is documented in the [setup guide](setup.md#optional-google-vision-fallback).
 
 # Stage 4: Machine Learning Recommendation
 
@@ -155,5 +177,5 @@ removes the `/api` prefix. The backend and frontend run in separate terminals.
 ## Remaining work
 
 Deployment, device-based sessions, persistent reader preferences and reading
-history, shared metadata caching, rate limiting, and production monitoring
+history, rate limiting, and production monitoring
 remain future work. AI/ML quality evaluation is also pending.
