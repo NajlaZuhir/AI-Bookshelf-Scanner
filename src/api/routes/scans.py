@@ -2,11 +2,20 @@ from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from src.database.repositories.scan_repository import ScanRepository
 from src.services.scan_service import process_scan
+from src.api.rate_limiting import limiter
+from src.config import SCAN_RATE_LIMIT
 
 router = APIRouter()
 scan_repository = ScanRepository()
@@ -37,7 +46,12 @@ def get_one_scan(scan_id: int):
 
 # post (Creation) endpoints==============================================
 @router.post("/scans", status_code=201)
-def create_scan(file: UploadFile = File(...)):
+@limiter.limit(SCAN_RATE_LIMIT)
+def create_scan(
+    request: Request,
+    response: Response,
+    file: UploadFile = File(...),
+):
     contents = file.file.read(MAX_UPLOAD_BYTES + 1)
 
     if not contents:

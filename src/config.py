@@ -24,6 +24,10 @@ GOOGLE_VISION_FALLBACK_ENABLED = (
     os.getenv("GOOGLE_VISION_FALLBACK_ENABLED", "false").strip().lower()
     == "true"
 )
+SCAN_RATE_LIMIT = os.getenv(
+    "SCAN_RATE_LIMIT",
+    "3/minute;20/hour",
+)
 
 
 @lru_cache(maxsize=1)
