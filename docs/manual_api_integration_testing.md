@@ -51,6 +51,10 @@ DB_NAME=bookshelf_test python -m uvicorn src.api.main:app --reload --host 127.0.
 Keep it running and open [Swagger UI](http://127.0.0.1:8000/docs).
 For each request, select **Try it out**, enter the values, and select **Execute**.
 
+`POST /scans` is limited to 3 requests per minute and 20 per hour per client IP
+by default. If an upload returns `429`, wait for the response's `Retry-After`
+interval before continuing. Repeated invalid-image uploads also consume quota.
+
 ## 3. Upload and scan an image
 
 In Swagger, expand `POST /scans`, choose a sample such as `data/book_6.jpg` in
@@ -135,6 +139,7 @@ Confirm IDs, metadata, preferences, and ranked results match the API responses.
 
 Uploads use multipart form data with the field name `file`. The limits are
 10 MB and 20 megapixels, and accepted formats are JPEG and PNG.
+The upload validation responses below assume the rate limit has not been reached.
 
 | Request / input | Expected |
 | --- | --- |
@@ -146,10 +151,49 @@ Uploads use multipart form data with the field name `file`. The limits are
 | Upload an empty or unreadable image | `400` |
 | Upload a readable image in an unsupported format, such as GIF | `415` |
 | Upload an image exceeding the file-size or pixel limit | `413`; Pillow decompression-bomb rejection can return `400` |
+| POST a scan after reaching the per-IP request limit | `429`; response includes `Retry-After` |
 | `GET /scans/not-an-integer` | `422` |
 
 Invalid recommendation requests must not add saved results. Omitting `top_k`
 defaults to 3; `top_k: null` requests all rankable books.
+
+## Optional: verify scan rate limiting
+
+Use an unreadable image upload to check the limiter without recognition API
+calls or creating scan records:
+
+1. Restart the backend using the command in step 2 to clear its in-memory
+   counters and retain the test database selection.
+2. In Swagger, expand `POST /scans`, select **Try it out**, and choose the
+   project's `requirements.txt` as the `file` upload.
+3. Execute four requests within one minute, without restarting the backend.
+
+| Request | Expected |
+| --- | --- |
+| First three | `400`; the uploaded file is not a readable image |
+| Fourth and further requests in the same window | `429`; scan limit reached |
+
+The expected response body is:
+
+```json
+{
+  "detail": "Scan limit reached. Please wait before trying again."
+}
+```
+
+Inspect the `Retry-After` header for the waiting time in seconds. After that
+interval, an invalid-image request should reach validation again and return
+`400`, provided the hourly quota remains available.
+
+**Observed manual result:** three consecutive `400` responses followed by
+repeated `429` responses confirmed enforcement of the minute limit. The
+20-per-hour limit is configured but was not separately tested; window recovery
+was not recorded in that check.
+
+The limiter applies only to API scans. CLI scans bypass it, local requests
+normally share the localhost IP quota, and backend restart/reload resets the
+counters. For configuration and deployment scope, see
+[scan rate limiting](setup.md#scan-rate-limiting).
 
 ## Optional: use the CLI instead of uploading
 

@@ -12,6 +12,35 @@ the reader's preferences.
 4. Ranks matched books against free-text reading preferences using MiniLM embeddings.
 5. Stores scans, matched books, and recommendation results in PostgreSQL.
 6. Displays detected books, match statuses, and personalized recommendations.
+7. Limits API scan requests per client IP to reduce abuse and external API usage.
+
+## Web workflow
+
+```text
+Upload bookshelf photo
+        ↓
+Check rate limit
+        ↓
+Validate and save image
+        ↓
+OpenRouter identifies titles and authors
+        ↓
+Google Vision fallback if recognition fails
+        ↓
+Check metadata cache
+   ├─ Hit → reuse metadata
+   └─ Missing or expired → fetch from Open Library → cache
+        ↓
+Save scan and matched books in PostgreSQL
+        ↓
+Display detected books
+        ↓
+Reader enters preferences
+        ↓
+MiniLM embeddings + similarity ranking
+        ↓
+Save and display recommendations
+```
 
 ## Technology stack
 
@@ -25,6 +54,7 @@ the reader's preferences.
 - **Recommendations:** Sentence Transformers and NumPy
 - **Database:** PostgreSQL with Psycopg
 - **Validation and configuration:** Pydantic and `python-dotenv`
+- **Rate limiting:** SlowAPI with in-memory counters
 - **Testing:** Pytest
 
 ## Setup
@@ -33,6 +63,8 @@ Follow the [setup and usage guide](docs/setup.md) to configure the environment,
 initialize PostgreSQL, and run the backend and frontend in separate terminals.
 Upload a photo, review detected books, and enter your reading preferences to get
 recommendations. See the [frontend guide](frontend/README.md) for UI and proxy details.
+API scans default to 3 requests per minute and 20 per hour per IP; see
+[rate-limit configuration and scope](docs/setup.md#scan-rate-limiting).
 
 ## Optional: run the CLI
 

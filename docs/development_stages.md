@@ -151,6 +151,21 @@ only matched books are persisted. Recommendations are generated separately via
 `POST /scans/{scan_id}/recommendations`, allowing preference changes without
 rescanning.
 
+## Scan rate limiting
+
+Implemented SlowAPI protection on `POST /scans`, with configurable defaults of
+3 requests per minute and 20 per hour per client IP. Requests over the limit
+return `429` with `Retry-After` and a frontend-compatible `detail` message before
+image processing or recognition calls run.
+
+Manually verified the minute limit through Swagger: the first three requests
+with an unreadable image returned `400`, and the fourth and subsequent requests
+returned `429`. The hourly limit is configured but was not separately tested.
+
+This implementation uses in-memory counters for one backend process. Counters
+reset on restart/reload, and CLI scans bypass the limiter. Shared counter
+storage and trusted proxy configuration remain deployment considerations.
+
 ## Validation
 
 Used Postman to manually test GET requests to `/books`, `/scans`, and `/recommendations`, plus POST requests for scan creation and recommendations. Checked request handling, API responses, and database retrieval through the flow: Postman → FastAPI → repositories → PostgreSQL.
@@ -177,5 +192,5 @@ removes the `/api` prefix. The backend and frontend run in separate terminals.
 ## Remaining work
 
 Deployment, device-based sessions, persistent reader preferences and reading
-history, rate limiting, and production monitoring
-remain future work. AI/ML quality evaluation is also pending.
+history, and production monitoring remain future work. AI/ML quality evaluation
+is also pending.

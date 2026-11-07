@@ -109,6 +109,33 @@ python -m src.cli \
 Each CLI run saves a scan, matched books, and an initial recommendation result.
 The CLI can be used independently of the frontend and API server.
 
+## Scan rate limiting
+
+SlowAPI limits `POST /scans` per client IP. Configure it in `.env`:
+
+```dotenv
+SCAN_RATE_LIMIT=3/minute;20/hour
+```
+
+Restart the backend after changing the setting. Exceeding either limit returns
+`429` with a `Retry-After` header and this message, which the frontend displays:
+
+```text
+Scan limit reached. Please wait before trying again.
+```
+
+The limit is checked before the scan endpoint's image processing and external
+API calls. Attempts that reach the endpoint count even if image validation
+fails. CLI scans run directly and bypass HTTP rate limiting.
+
+Counters are stored in memory for one backend process and reset when it
+restarts or reloads. Local requests normally share the localhost IP quota.
+Multiple workers or servers require shared counter storage, such as Redis;
+deployment behind a proxy also requires trusted forwarding of client IPs.
+
+The minute limit was manually verified; the configured hourly limit was not
+separately tested. See the [manual check](manual_api_integration_testing.md#optional-verify-scan-rate-limiting).
+
 ## Troubleshooting
 
 `ECONNREFUSED 127.0.0.1:8000` in the Vite terminal means the frontend cannot reach
