@@ -1,5 +1,5 @@
 
-# Stage 1: Problem Definition & Planning
+### Stage 1: Problem Definition & Planning
 
 Help readers choose books in bookstores, book fairs, or libraries using a bookshelf photo and their reading preferences or history.
 
@@ -7,7 +7,7 @@ This stage focused on defining requirements and exploring the initial architectu
 
 **Proposed workflow:** Photo + reader preferences/history → book identification → book information → ranked recommendations.
 
-## Scope
+#### Scope
 
 - Identify books in an image.
 - Retrieve relevant book information.
@@ -17,7 +17,7 @@ This stage focused on defining requirements and exploring the initial architectu
 The current MVP uses free-text preferences. Persistent reading history and
 recommendation explanations remain planned features.
 
-## Technologies considered
+#### Technologies considered
 
 GPT vision models, OCR, Google Vision, PostgreSQL, React, and book metadata APIs. No technology choices were finalized at this stage.
 
@@ -25,15 +25,15 @@ GPT vision models, OCR, Google Vision, PostgreSQL, React, and book metadata APIs
 
 Book identification accuracy, metadata match rate, recommendation relevance, and response time.
 
-# Stage 2: Data Engineering / Book Metadata
+### Stage 2: Data Engineering / Book Metadata
 
 Built a reusable metadata lookup service, `run_find_book(title, author=None)`, to turn a title and optional author into structured book data.
 
-## Data source
+#### Data source
 
 Evaluated Google Books, Open Library, and Goodreads. Open Library became the working source after Google Books returned quota errors (`429 RESOURCE_EXHAUSTED`).
 
-## Workflow
+#### Workflow
 
 Title + optional author → search → select and validate best match → fetch work details → normalize metadata.
 
@@ -41,7 +41,7 @@ Title + optional author → search → select and validate best match → fetch 
 - `/works/{work_id}.json`: retrieves descriptions and subjects.
 - Matching uses normalized text similarity, weighting title more heavily than author and rejecting low-confidence results.
 
-## Output and validation
+#### Output and validation
 
 Normalized fields: `work_id`, `title`, `authors`, `description`, `subjects`, `first_publish_year`, `cover_id`, `languages`, and `source`.
 
@@ -55,15 +55,15 @@ an Open Library lookup and refresh. Unmatched titles and API failures are not
 cached. Cache access failures fall back to the normal lookup, and terminal
 messages report cache hits, misses, and saves.
 
-# Stage 3: AI / Computer Vision
+### Stage 3: AI / Computer Vision
 
 Built `identify_books_in_image(image_path)` to extract readable book titles and authors from bookshelf photos.
 
-## Approach
+#### Approach
 
 Explored PaddleOCR and EasyOCR, but setup complexity and disorganized text output led to using a vision-language model through OpenRouter.
 
-## Workflow
+#### Workflow
 
 Bookshelf photo → vision model → structured book detections → Open Library metadata lookup.
 
@@ -71,13 +71,13 @@ Bookshelf photo → vision model → structured book detections → Open Library
 - Prompts the model to omit unreadable titles and use `null` for unreadable authors.
 - Passes detected titles and authors to the Stage 2 metadata service.
 
-## Output and validation
+#### Output and validation
 
 Returns a `books` array containing `book_number`, `title`, and `author`. The prompt requests an empty array when no titles are readable.
 
 Uses a strict JSON schema and Pydantic validation to reject malformed responses. Recognition accuracy still requires evaluation against manually labeled images.
 
-## Optional Google Vision fallback
+#### Optional Google Vision fallback
 
 `detect_books()` calls OpenRouter first. When enabled, primary API failures or
 invalid structured output trigger Google Vision Document Text Detection.
@@ -93,15 +93,15 @@ The fallback is disabled until Google Cloud authentication is configured and
 so its candidate counts are not confirmed book counts and its quality still
 requires evaluation. Setup is documented in the [setup guide](setup.md#optional-google-vision-fallback).
 
-# Stage 4: Machine Learning Recommendation
+### Stage 4: Machine Learning Recommendation
 
 Built `recommend_books(books, user_preference, top_k=3)` to rank detected books by their relevance to the reader's stated interests.
 
-## Approach
+#### Approach
 
 Uses content-based recommendation with the pretrained Sentence Transformers model `all-MiniLM-L6-v2` to compare book metadata with free-text preferences.
 
-## Workflow
+#### Workflow
 
 Book metadata + reader preference → text profiles → semantic embeddings → cosine similarity → ranked recommendations.
 
@@ -109,17 +109,17 @@ Book metadata + reader preference → text profiles → semantic embeddings → 
 - Generates normalized embeddings for the preference and book profiles.
 - Scores each book against the preference and returns the highest-scoring results, with three recommendations by default.
 
-## Output and validation
+#### Output and validation
 
 Returns titles, authors, similarity scores, Open Library work IDs, and database book IDs when available.
 
 Rejects blank preferences and invalid `top_k` values. Books without usable profiles are skipped; an empty candidate set returns an empty list. Setting `top_k=None` returns all ranked books.
 
-# Stage 5: Database + Backend Integration
+### Stage 5: Database + Backend Integration
 
 Connected book detection, metadata retrieval, and recommendation ranking to PostgreSQL through `process_bookshelf(image_path, user_preference, top_k=3)`.
 
-## Database structure
+#### Database structure
 
 - `scan`: image path and scan timestamp.
 - `books`: matched book metadata linked to a scan.
@@ -127,7 +127,7 @@ Connected book detection, metadata retrieval, and recommendation ranking to Post
 
 Foreign keys link books and recommendation results to their scan.
 
-## Backend workflow
+#### Backend workflow
 
 Image → detect books → retrieve metadata → save scan and matched books → rank saved books → save recommendations.
 
@@ -135,7 +135,7 @@ Uses Psycopg and repository classes to separate database queries from applicatio
 
 Saved book IDs are retained in recommendations. The backend can reuse a scan's stored books for new preferences and retrieve its recommendation history.
 
-## Image-upload API
+#### Image-upload API
 
 Added `POST /scans` to accept a multipart image in the `file` field. It validates
 JPEG/PNG contents, enforces 10 MB and 20-megapixel limits, corrects orientation,
@@ -151,7 +151,7 @@ only matched books are persisted. Recommendations are generated separately via
 `POST /scans/{scan_id}/recommendations`, allowing preference changes without
 rescanning.
 
-## Scan rate limiting
+#### Scan rate limiting
 
 Implemented SlowAPI protection on `POST /scans`, with configurable defaults of
 3 requests per minute and 20 per hour per client IP. Requests over the limit
@@ -166,17 +166,17 @@ This implementation uses in-memory counters for one backend process. Counters
 reset on restart/reload, and CLI scans bypass the limiter. Shared counter
 storage and trusted proxy configuration remain deployment considerations.
 
-## Validation
+#### Validation
 
 Used Postman to manually test GET requests to `/books`, `/scans`, and `/recommendations`, plus POST requests for scan creation and recommendations. Checked request handling, API responses, and database retrieval through the flow: Postman → FastAPI → repositories → PostgreSQL.
 
 These were manual integration checks, separate from automated repository tests covering record creation and retrieval, filtering by scan, recommendation history, and foreign-key enforcement. A [manual integration guide](manual_api_integration_testing.md) documents the current upload, retrieval, recommendation, and database checks, with the CLI as an alternative.
 
-# Stage 6: Frontend Development
+### Stage 6: Frontend Development
 
 Built a responsive React + Vite interface with a cream-and-green design.
 
-## Workflow
+#### Workflow
 
 Select or drop a photo → preview → scan → review detected books → enter
 preferences → display up to three recommendations.
@@ -189,7 +189,7 @@ preferences → display up to three recommendations.
 During development, Vite forwards `/api` requests to FastAPI on port 8000 and
 removes the `/api` prefix. The backend and frontend run in separate terminals.
 
-## Remaining work
+#### Remaining work
 
 Deployment, device-based sessions, persistent reader preferences and reading
 history, and production monitoring remain future work. AI/ML quality evaluation
