@@ -59,26 +59,66 @@ Save and display recommendations
 
 ## Setup
 
-Follow the [setup and usage guide](docs/setup.md) to configure the environment,
-initialize PostgreSQL, and run the backend and frontend in separate terminals.
-Upload a photo, review detected books, and enter your reading preferences to get
-recommendations. See the [frontend guide](frontend/README.md) for UI and proxy details.
-API scans default to 3 requests per minute and 20 per hour per IP; see
-[rate-limit configuration and scope](docs/setup.md#scan-rate-limiting).
+Install Conda, PostgreSQL, and Node.js. In Git Bash, from the project root:
+
+```bash
+conda create -n bookshelf python=3.11 -y
+conda activate bookshelf
+python -m pip install -r requirements.txt
+cp .env.example .env
+```
+
+Keep an existing `.env` if configured. Set your OpenRouter API key and PostgreSQL
+credentials in `.env`.
+
+With PostgreSQL running, create the database and apply the schema. Adjust the
+executable path and connection details for your installation:
+
+```bash
+PSQL="/c/Program Files/PostgreSQL/18/bin/psql.exe"
+"$PSQL" -h localhost -p 5432 -U postgres -d postgres -c "CREATE DATABASE book_shelf;"
+"$PSQL" -h localhost -p 5432 -U postgres -d book_shelf -v ON_ERROR_STOP=1 -f src/database/migrations/001_book_shelf_schema.sql
+```
+
+Skip database creation if it already exists.
+
+## Run
+
+Backend, from the project root:
+
+```bash
+conda activate bookshelf
+python -m uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Frontend, in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL printed by Vite, usually [localhost:5173](http://localhost:5173).
+Keep PostgreSQL and both terminals running. Repeat `npm install` only when
+dependencies change.
+
+Upload a JPEG/PNG photo (up to 10 MB and 20 megapixels), review detected books,
+then enter preferences to get recommendations. Images go in `data/uploads/`;
+scans, matched books, and recommendations are saved in PostgreSQL.
+
+API documentation: [Swagger UI](http://127.0.0.1:8000/docs).
+If Vite reports `ECONNREFUSED`, check that the backend is running on port 8000.
+Vite forwards `/api` to the backend during development; production hosting
+needs equivalent routing with the prefix removed.
 
 ## Optional: run the CLI
 
 From the project root, run:
 
 ```bash
-python -m src.cli \
-  --image "data/book_1.jpg" \
-  --preference "I enjoy science fiction and fantasy" \
-  --top-k 3
+python -m src.cli --image "data/book_1.jpg" --preference "Science fiction and fantasy" --top-k 3
 ```
-
-The CLI detects books in the image, retrieves their metadata, saves the scan
-and recommendations to PostgreSQL, and prints the ranked results.
 
 ## Development
 
@@ -108,3 +148,30 @@ progression and implementation details.
 ├── requirements.txt              # Python dependencies
 └── README.md                     # Project documentation
 ```
+## Checks
+
+Create a separate `bookshelf_test` database and apply the same schema using the
+database commands above with that name. Then run:
+
+```bash
+DB_NAME=bookshelf_test python -m pytest tests/test_repositories.py -v
+```
+
+Tests leave records in the test database. For a manual API check in Swagger,
+upload through `POST /scans`, retrieve `GET /scans/{scan_id}/books`, then call
+`POST /scans/{scan_id}/recommendations` with:
+
+```json
+{"preference_text": "Science fiction", "top_k": 3}
+```
+
+Frontend production build: run `npm run build` inside `frontend/`.
+
+## Configuration
+
+- `SCAN_RATE_LIMIT` defaults to `3/minute;20/hour` per IP. Excess API scans return
+  `429`. Counters reset on backend restart; CLI scans bypass the limit.
+- Optional OCR fallback: install `google-cloud-vision`, configure Google Cloud
+  credentials and the Vision API, then set `GOOGLE_VISION_FALLBACK_ENABLED=true`.
+
+Restart the backend after changing `.env`.
